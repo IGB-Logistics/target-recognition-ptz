@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torchvision.transforms import transforms
 
-from .embedder.mobilenetv2_bottle import MobileNetV2_bottle
+from embedder.mobilenetv2_bottle import MobileNetV2_bottle
 
 logger = logging.getLogger(__name__)
 

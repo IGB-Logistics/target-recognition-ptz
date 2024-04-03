@@ -394,8 +394,8 @@ class VideoStreamHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(html.encode())
 
-model_path = '/home/HwHiAiUser/samples/notebooks/01-yolov5/yolo.om'
-label_path = '/home/HwHiAiUser/samples/notebooks/01-yolov5/coco_names.txt'
+model_path = './model/yolo.om'
+label_path = './model/coco_names.txt'
 resolution=HD_720P
 
 def run_server():
