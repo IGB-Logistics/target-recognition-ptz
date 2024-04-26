@@ -16,6 +16,7 @@ EMBEDDER_CHOICES = [
     "mobilenet",
     "torchreid",
     "npu",
+    "sface_npu",
 ]
 
 
@@ -110,6 +111,15 @@ class DeepSort(object):
             elif embedder == 'npu':
                 from .embedder.embedder_npu import (
                     MobileNetv2_NPU_Embedder as Embedder,
+                )
+
+                self.embedder = Embedder(
+                    om_model_path=embedder_wts,
+                    init_npu = False,
+                )
+            elif embedder == 'sface_npu':
+                from .embedder.embedder_npu import (
+                    Sface_NPU_Embedder as Embedder,
                 )
 
                 self.embedder = Embedder(

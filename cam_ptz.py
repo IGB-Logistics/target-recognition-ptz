@@ -261,7 +261,6 @@ class AIBooster:
             'iou_thres': 0.5,  # IOU阈值，高于这个阈值的重叠预测框会被过滤掉
             'input_shape': [640, 640],  # 模型输入尺寸
         }
-        self.tracker = DeepSort(max_age=5, embedder='npu')
         # self.tracker = DeepSort(max_age=5)
         self.yolo_pred = np.zeros((0, 6))
         self.prev_time = 0
