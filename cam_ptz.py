@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from skvideo.io import vreader, FFmpegWriter
 from ais_bench.infer.interface import InferSession
-from det_utils import letterbox, scale_coords, nms
 # from fastapi import FastAPI, Response, Request, WebSocket
 # from fastapi.responses import HTMLResponse, StreamingResponse
 # from contextlib import asynccontextmanager
@@ -23,7 +22,8 @@ from servo.ServoPCA9685 import ServoPCA9685
 from servo.ServoPCA9685 import map
 from servo.SimplePID import SimplePID
 
-from deep_sort_lite.deepsort_tracker import DeepSort
+from Detector.yolo_detector import YoloDet
+from Tracker.deepsort_tracker import DeepSort
 
 class ServoPTZ:
     YAW_ANGLE0 = 85
@@ -254,14 +254,8 @@ class Camera:
         
 class AIBooster:
     def __init__(self, model_path, label_path):
-        self.model = InferSession(0, model_path)
-        self.labels_dict = self.get_labels_from_txt(label_path)
-        self.cfg = {
-            'conf_thres': 0.4,  # 模型置信度阈值，阈值越低，得到的预测框越多
-            'iou_thres': 0.5,  # IOU阈值，高于这个阈值的重叠预测框会被过滤掉
-            'input_shape': [640, 640],  # 模型输入尺寸
-        }
-        # self.tracker = DeepSort(max_age=5)
+        self.detector = YoloDet()
+        self.tracker = DeepSort(max_age=5, embedder='npu')
         self.yolo_pred = np.zeros((0, 6))
         self.prev_time = 0
     
@@ -296,49 +290,13 @@ class AIBooster:
         self.prev_time = current_time
 
         # 数据预处理
-        img, scale_ratio, pad_size = self.preprocess_image(image, self.cfg, bgr2rgb)
-        # 模型推理
-        output = self.model.infer([img])[0]
+        bbs = self.detector.inference(image)
         infer_time = time.time()
-        output = torch.tensor(output)
-        # 非极大值抑制后处理
-        boxout = nms(output, conf_thres=self.cfg["conf_thres"], iou_thres=self.cfg["iou_thres"])
-        yolo_pred = boxout[0].numpy()
-        nms_time = time.time()
-        # 预测坐标转换
-        scale_coords(self.cfg['input_shape'], yolo_pred[:, :4], image.shape, ratio_pad=(scale_ratio, pad_size))
-        self.yolo_pred = yolo_pred
-        
-        # DeepSort
-        # bbs expected to be a list of detections, each in tuples of ( [left,top,w,h], confidence, detection_class )
-        boxes = yolo_pred[:, :4]
-        confidence = yolo_pred[:, 4]
-        detection_class = yolo_pred[:, 5]
-        boxes_xywh = [[box[0], box[1], box[2] - box[0], box[3] - box[1]] for box in boxes]
-        bbs = list(zip(boxes_xywh, confidence, detection_class))
         self.tracks = self.tracker.update_tracks(bbs, frame=image)
         sort_time = time.time()
-        print(f"fps:{fps:.2f} infer:{infer_time-current_time:.2f} nms:{nms_time-infer_time:.2f} sort:{sort_time-nms_time:.2f} dectect:{len(yolo_pred)} tracks:{len(self.tracks)} ")
+        print(f"fps:{fps:.2f} infer:{infer_time-current_time:.2f} sort:{sort_time-infer_time:.2f} dectect:{len(bbs)} tracks:{len(self.tracks)} ")
         
-        return yolo_pred, self.tracks
-
-    def get_labels_from_txt(self, path):
-        """从txt文件获取图片标签"""
-        labels_dict = dict()
-        with open(path) as f:
-            for cat_id, label in enumerate(f.readlines()):
-                labels_dict[cat_id] = label.strip()
-        return labels_dict
-
-    def preprocess_image(self, image, cfg, bgr2rgb=True):
-        """图片预处理"""
-        img, scale_ratio, pad_size = letterbox(image, new_shape=cfg['input_shape'])
-        if bgr2rgb:
-            img = img[:, :, ::-1]
-        img = img.transpose(2, 0, 1)  # HWC2CHW
-        # img = np.ascontiguousarray(img, dtype=np.float32) /255.0 # 这里增加了/255.0，为了提高速度，sample样例这里的/255放到模型里面进去了
-        img = np.ascontiguousarray(img, dtype=np.float32)
-        return img, scale_ratio, pad_size
+        return self.tracks
 
     @staticmethod
     def img2bytes(image):
@@ -413,7 +371,7 @@ try:
         time.sleep(0.001)
         frame = camera.get_frame()
         if frame is not None:
-            _, tracks = model.infer_frame_with_vis(frame)
+            tracks = model.infer_frame_with_vis(frame)
             # 更新dx dy 
             screen_center_x = int(frame.shape[1] / 2)
             screen_center_y = int(frame.shape[0] / 2)

@@ -2,8 +2,6 @@ import cv2
 import threading
 import numpy as np
 import torch
-from ais_bench.infer.interface import InferSession
-import yunet_det_utils
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
@@ -18,7 +16,8 @@ from servo.ServoPCA9685 import ServoPCA9685
 from servo.ServoPCA9685 import map
 from servo.SimplePID import SimplePID
 
-from deep_sort_lite.deepsort_tracker import DeepSort
+from Detector.yunet_detector import YuNetDet
+from Tracker.deepsort_tracker import DeepSort
 
 class ServoPTZ:
     YAW_ANGLE0 = 85
@@ -248,12 +247,10 @@ class Camera:
         
         
 class AIBooster:
-    YUNET_SIZE_W = 160
-    YUNET_SIZE_H = 120
     
     
-    def __init__(self, model_path):
-        self.model = yunet_det_utils.YuNetDet(model_path)
+    def __init__(self):
+        self.detector = YuNetDet()
         self.tracker = DeepSort(max_age=5, embedder='sface_npu')
         self.prev_time = 0
     
@@ -265,27 +262,14 @@ class AIBooster:
         self.running = False
         self.thread_cam.join()
     
-    def infer_frame_with_vis(self, image, bgr2rgb=True):        
+    def infer_frame_with_vis(self, image):        
         # 计算帧率
         current_time = time.time()
         fps = 1 / (current_time - self.prev_time)
         self.prev_time = current_time
-
         # 模型推理
-        bboxes, landmarks, scores = self.model.inference(image)
+        bbs = self.detector.inference(image)
         infer_time = time.time()
-        
-        # DeepSort
-        # bbs expected to be a list of detections, each in tuples of ( [left,top,w,h], confidence, detection_class )
-        boxes = bboxes
-        confidence = scores
-        detection_class = np.ones(len(boxes))
-        # boxes_xywh = [[box[0], box[1], box[2], box[3]] for box in boxes]
-        boxes_xywh = [[image.shape[1] * box[0] / self.YUNET_SIZE_W, 
-                       image.shape[0] * box[1] / self.YUNET_SIZE_H, 
-                       image.shape[1] * box[2] / self.YUNET_SIZE_W,
-                       image.shape[0] * box[3] / self.YUNET_SIZE_H] for box in boxes]
-        bbs = list(zip(boxes_xywh, confidence, detection_class))
         self.tracks = self.tracker.update_tracks(bbs, frame=image)
         sort_time = time.time()
         # print(f"fps:{fps:.2f} infer:{infer_time-current_time:.2f} sort:{sort_time-infer_time:.2f} dectect:{len(bboxes)} tracks:{len(self.tracks)} ")
@@ -345,14 +329,13 @@ class VideoStreamHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(html.encode())
 
-model_path = './model/yunet_120x160.om'
 resolution=HD_720P
 
 def run_server():
     server.serve_forever(0.01)
 
 try:
-    model = AIBooster(model_path)
+    model = AIBooster()
     camera = Camera(resolution=resolution)
     print("Camera initialized")
 
