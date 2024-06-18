@@ -16,7 +16,11 @@ EMBEDDER_CHOICES = [
     "mobilenet",
     "torchreid",
     "npu",
-    "sface_npu",
+    "sface_onnx",
+    "sface_om",
+    "sface_trt",
+    "sface_rknn-3566",
+    "sface_rknn-3588"
 ]
 
 
@@ -117,15 +121,21 @@ class DeepSort(object):
                     om_model_path=embedder_wts,
                     init_npu = False,
                 )
-            elif embedder == 'sface_npu':
-                from .embedder.embedder_npu import (
-                    Sface_NPU_Embedder as Embedder,
-                )
-
-                self.embedder = Embedder(
-                    om_model_path=embedder_wts,
-                    init_npu = False,
-                )
+            elif embedder == 'sface_onnx':
+                from .embedder.embedder_sface import Sface_Embedder as Embedder
+                self.embedder = Embedder(platform='onnx')
+            elif embedder == 'sface_om':
+                from .embedder.embedder_sface import Sface_Embedder as Embedder
+                self.embedder = Embedder(platform='om')
+            elif embedder == 'sface_trt':
+                from .embedder.embedder_sface import Sface_Embedder as Embedder
+                self.embedder = Embedder(platform='trt')
+            elif embedder == 'sface_rknn-3566':
+                from .embedder.embedder_sface import Sface_Embedder as Embedder
+                self.embedder = Embedder(platform='rknn-3566')
+            elif embedder == 'sface_rknn-3588':
+                from .embedder.embedder_sface import Sface_Embedder as Embedder
+                self.embedder = Embedder(platform='rknn-3588')
 
             elif embedder == 'torchreid':
                 from .embedder.embedder_pytorch import TorchReID_Embedder as Embedder

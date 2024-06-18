@@ -2,6 +2,13 @@ __pycache__
 Tracker/__pycache__/
 Tracker/deep_sort/__pycache__/
 Tracker/embedder/__pycache__/
+Tracker/embedder/sface/__pycache__/
 Tracker/utils/__pycache__/
-Detector/__pycache__
+Detector/__pycache__/
+Detector/yunet/__pycache__/
 servo/__pycache__
+mushfoc/__pycache__/
+mushfoc/Ext/__pycache__/
+mushfoc/example/__pycache__/
+
+
